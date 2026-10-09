@@ -1,0 +1,98 @@
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#080b0e;color:#f5f4ef;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+button{font:inherit;cursor:pointer}
+
+/* ── Intro / entry phases ── */
+.intro,.login,.transition{min-height:100dvh;display:grid;place-items:center;text-align:center;position:relative;overflow:hidden}
+.intro{background:radial-gradient(ellipse at 50% 40%,#1a2a28 0%,#080b0e 70%)}
+.intro-glow{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,#e7c77f33,#0000 70%);filter:blur(40px);animation:pulse 3s ease-in-out infinite}
+.logo-mark{font-size:3.2rem;font-weight:950;letter-spacing:.3em;color:#e7c77f;z-index:1}
+.brand{font-size:1.6rem;font-weight:900;letter-spacing:.45em;margin-top:12px;z-index:1}
+.tagline{font-size:.72rem;letter-spacing:.28em;color:#9aa7a2;margin-top:18px;z-index:1}
+.loading{margin-top:48px;font-size:.62rem;letter-spacing:.22em;color:#737d80;display:flex;align-items:center;gap:10px;z-index:1}
+.loading span{width:8px;height:8px;border-radius:50%;background:#e7c77f;animation:blink 1.2s infinite}
+.login{background:#0a1014}
+.login-bg{position:absolute;inset:0;background:linear-gradient(160deg,#12201c 0%,#080b0e 55%,#1a1510 100%);opacity:.95}
+.login-card{position:relative;z-index:1;max-width:380px;padding:40px 32px;background:#0e1518ee;border:1px solid #ffffff14;border-radius:20px;box-shadow:0 24px 80px #0008}
+.mini-logo{width:48px;height:48px;margin:0 auto 16px;display:grid;place-items:center;border-radius:12px;background:#e7c77f22;color:#e7c77f;font-weight:950;letter-spacing:.1em}
+.eyebrow{font-size:.62rem;letter-spacing:.28em;color:#8c9698;margin:0 0 6px}
+.login-card h1{font-size:1.8rem;letter-spacing:.2em;margin:0 0 14px;color:#f1d08a}
+.copy{font-size:.85rem;line-height:1.55;color:#b0b8b4;margin:0 0 28px}
+.login-card button{width:100%;padding:14px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#e7c77f,#c9a45a);color:#1a1408;font-weight:800;letter-spacing:.08em;font-size:.9rem;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s}
+.login-card button:hover{transform:translateY(-1px)}
+.login-card small{display:block;margin-top:16px;font-size:.58rem;letter-spacing:.16em;color:#687174}
+.transition{background:#0c1418}
+.transition-ring{width:80px;height:80px;border:3px solid #e7c77f44;border-top-color:#e7c77f;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:24px}
+.transition h1{font-size:1.1rem;letter-spacing:.22em;color:#e7c77f;margin:0 0 8px}
+.transition p{font-size:.7rem;letter-spacing:.14em;color:#8c9698;margin:0}
+
+/* ── World screen ── */
+.world-screen{min-height:100dvh;background:#080b0e;display:flex;flex-direction:column}
+.hud-top{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(12px,3vw,36px);background:#0a0d10f2;border-bottom:1px solid #ffffff12;gap:10px;z-index:20;flex-shrink:0}
+.wordmark{color:#f1d08a;text-decoration:none;font-size:1rem;font-weight:950;letter-spacing:.16em}
+.hud-place{font-size:.72rem;letter-spacing:.1em;color:#d8d8d0;display:flex;align-items:center;gap:8px}
+.hud-place small,.hud-money small{display:block;color:#737d80;font-size:.55rem;letter-spacing:.12em;margin-top:3px}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#9cc49b;box-shadow:0 0 12px #9cc49b66;flex-shrink:0}
+.hud-money{text-align:right;color:#e7c77f;font-weight:900;font-size:.95rem}
+
+.game-stage{position:relative;flex:1;min-height:0;overflow:hidden}
+.world-canvas{display:block;width:100%;height:100%;outline:none;touch-action:none}
+.loading-world{position:absolute;inset:0;display:grid;place-items:center;background:#111b20;color:#e3c47f;letter-spacing:.2em;font-size:.78rem;pointer-events:none;z-index:5}
+
+.location-chip,.mission-chip,.controls-help,.pause-overlay{position:absolute;background:#0a0e11dc;backdrop-filter:blur(12px);border:1px solid #ffffff1a;border-radius:13px;box-shadow:0 12px 35px #0005}
+.location-chip{top:16px;left:16px;padding:11px 14px;font-size:.68rem;letter-spacing:.1em;z-index:10}
+.location-chip span{color:#e5c477;font-size:.95rem;margin-right:5px}
+.location-chip small{display:block;color:#8c9698;font-size:.55rem;margin-top:5px}
+.mission-chip{top:16px;right:16px;width:200px;padding:12px 14px;z-index:10}
+.mission-chip small{display:block;font-size:.52rem;letter-spacing:.14em;color:#8c9698;margin-bottom:4px}
+.mission-chip strong{display:block;font-size:.82rem;color:#e7c77f;margin-bottom:4px}
+.mission-chip span{font-size:.62rem;color:#b0b8b4;line-height:1.4}
+.controls-help{bottom:16px;right:16px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:10;max-width:210px}
+.controls-help strong{font-size:.6rem;letter-spacing:.12em;color:#e7c77f}
+.controls-help span{font-size:.55rem;color:#8c9698;letter-spacing:.06em}
+.controls-help button{padding:6px 12px;border:1px solid #ffffff28;border-radius:8px;background:#0b1115cc;color:#e8e6df;font-size:.58rem;letter-spacing:.08em}
+.controls-help button:hover{background:#1a2228}
+
+/* Pause overlay */
+.pause-overlay{inset:0;display:grid;place-items:center;z-index:30;background:#080b0ecc;border:none;border-radius:0}
+.pause-card{text-align:center;padding:36px 40px;background:#0e1518f2;border:1px solid #ffffff18;border-radius:18px;box-shadow:0 24px 80px #000a}
+.pause-card h2{margin:0 0 8px;font-size:1.3rem;letter-spacing:.2em;color:#e7c77f}
+.pause-card p{margin:0 0 24px;font-size:.72rem;color:#8c9698;letter-spacing:.1em}
+.pause-card button{padding:12px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#e7c77f,#c9a45a);color:#1a1408;font-weight:800;letter-spacing:.1em;font-size:.85rem}
+.pause-card button:hover{transform:translateY(-1px)}
+
+/* Mobile D-pad */
+.mobile-pad{display:none;position:absolute;left:14px;bottom:14px;flex-direction:column;align-items:center;gap:4px;z-index:15;user-select:none}
+.mobile-pad .pad-row{display:flex;gap:4px}
+.mobile-pad button{width:48px;height:48px;border:1px solid #ffffff30;border-radius:12px;background:#0b1115cc;color:white;font-size:1.1rem;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.mobile-pad button:active,.mobile-pad button.active{background:#e7c77f44;border-color:#e7c77f88}
+.mobile-pad .run-btn{width:auto;padding:0 14px;font-size:.62rem;letter-spacing:.1em;margin-top:6px}
+
+.bottom-bar{height:36px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;color:#687174;font-size:.55rem;letter-spacing:.12em;gap:10px;flex-shrink:0;background:#0a0d10;border-top:1px solid #ffffff0a}
+.bottom-bar span:first-child{color:#9aa7a2;display:flex;align-items:center;gap:6px}
+.bottom-bar i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9cc49b}
+
+@keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  .hud-top{height:58px}
+  .hud-place{font-size:.58rem}
+  .hud-place small{font-size:.48rem}
+  .hud-money{font-size:.82rem}
+  .mission-chip{top:auto;bottom:120px;right:10px;width:170px;padding:10px}
+  .mission-chip strong{font-size:.74rem}
+  .mission-chip span{font-size:.58rem}
+  .location-chip{top:10px;left:10px;padding:9px}
+  .controls-help{right:10px;bottom:10px;max-width:160px;padding:8px}
+  .controls-help span,.controls-help strong{display:none}
+  .mobile-pad{display:flex}
+  .bottom-bar{font-size:.48rem;padding:0 10px}
+  .bottom-bar span:last-child{display:none}
+  .login-card{margin:16px;padding:28px 22px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;scroll-behavior:auto!important}
+}
