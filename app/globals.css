@@ -2,7 +2,6 @@
 html,body{margin:0;padding:0;background:#080b0e;color:#f5f4ef;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
 button{font:inherit;cursor:pointer}
 
-/* ── Intro / entry phases ── */
 .intro,.login,.transition{min-height:100dvh;display:grid;place-items:center;text-align:center;position:relative;overflow:hidden}
 .intro{background:radial-gradient(ellipse at 50% 40%,#1a2a28 0%,#080b0e 70%)}
 .intro-glow{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,#e7c77f33,#0000 70%);filter:blur(40px);animation:pulse 3s ease-in-out infinite}
@@ -26,7 +25,6 @@ button{font:inherit;cursor:pointer}
 .transition h1{font-size:1.1rem;letter-spacing:.22em;color:#e7c77f;margin:0 0 8px}
 .transition p{font-size:.7rem;letter-spacing:.14em;color:#8c9698;margin:0}
 
-/* ── World screen ── */
 .world-screen{min-height:100dvh;background:#080b0e;display:flex;flex-direction:column}
 .hud-top{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(12px,3vw,36px);background:#0a0d10f2;border-bottom:1px solid #ffffff12;gap:10px;z-index:20;flex-shrink:0}
 .wordmark{color:#f1d08a;text-decoration:none;font-size:1rem;font-weight:950;letter-spacing:.16em}
@@ -47,30 +45,61 @@ button{font:inherit;cursor:pointer}
 .mission-chip small{display:block;font-size:.52rem;letter-spacing:.14em;color:#8c9698;margin-bottom:4px}
 .mission-chip strong{display:block;font-size:.82rem;color:#e7c77f;margin-bottom:4px}
 .mission-chip span{font-size:.62rem;color:#b0b8b4;line-height:1.4}
-.controls-help{bottom:16px;right:16px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:10;max-width:210px}
+.controls-help{bottom:16px;right:16px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:10;max-width:220px}
 .controls-help strong{font-size:.6rem;letter-spacing:.12em;color:#e7c77f}
 .controls-help span{font-size:.55rem;color:#8c9698;letter-spacing:.06em}
 .controls-help button{padding:6px 12px;border:1px solid #ffffff28;border-radius:8px;background:#0b1115cc;color:#e8e6df;font-size:.58rem;letter-spacing:.08em}
 .controls-help button:hover{background:#1a2228}
 
-/* Pause overlay */
 .pause-overlay{inset:0;display:grid;place-items:center;z-index:30;background:#080b0ecc;border:none;border-radius:0}
 .pause-card{text-align:center;padding:36px 40px;background:#0e1518f2;border:1px solid #ffffff18;border-radius:18px;box-shadow:0 24px 80px #000a}
 .pause-card h2{margin:0 0 8px;font-size:1.3rem;letter-spacing:.2em;color:#e7c77f}
 .pause-card p{margin:0 0 24px;font-size:.72rem;color:#8c9698;letter-spacing:.1em}
 .pause-card button{padding:12px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#e7c77f,#c9a45a);color:#1a1408;font-weight:800;letter-spacing:.1em;font-size:.85rem}
-.pause-card button:hover{transform:translateY(-1px)}
 
-/* Mobile D-pad */
 .mobile-pad{display:none;position:absolute;left:14px;bottom:14px;flex-direction:column;align-items:center;gap:4px;z-index:15;user-select:none}
 .mobile-pad .pad-row{display:flex;gap:4px}
-.mobile-pad button{width:48px;height:48px;border:1px solid #ffffff30;border-radius:12px;background:#0b1115cc;color:white;font-size:1.1rem;touch-action:manipulation;-webkit-user-select:none;user-select:none}
-.mobile-pad button:active,.mobile-pad button.active{background:#e7c77f44;border-color:#e7c77f88}
+.mobile-pad button{width:48px;height:48px;border:1px solid #ffffff30;border-radius:12px;background:#0b1115cc;color:white;font-size:1.1rem;touch-action:manipulation}
+.mobile-pad button:active{background:#e7c77f44;border-color:#e7c77f88}
 .mobile-pad .run-btn{width:auto;padding:0 14px;font-size:.62rem;letter-spacing:.1em;margin-top:6px}
 
 .bottom-bar{height:36px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;color:#687174;font-size:.55rem;letter-spacing:.12em;gap:10px;flex-shrink:0;background:#0a0d10;border-top:1px solid #ffffff0a}
 .bottom-bar span:first-child{color:#9aa7a2;display:flex;align-items:center;gap:6px}
 .bottom-bar i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9cc49b}
+
+.creator{min-height:100dvh;background:#0a1014;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px}
+.creator-card{width:100%;max-width:400px;background:#0e1518ee;border:1px solid #ffffff14;border-radius:20px;padding:28px 24px;box-shadow:0 24px 80px #0008}
+.creator-card h1{margin:0 0 4px;font-size:1.3rem;letter-spacing:.16em;color:#f1d08a;text-align:center}
+.creator-card .sub{text-align:center;font-size:.65rem;letter-spacing:.14em;color:#8c9698;margin:0 0 20px}
+.creator-field{margin-bottom:16px}
+.creator-field label{display:block;font-size:.58rem;letter-spacing:.14em;color:#8c9698;margin-bottom:8px}
+.creator-field input[type="text"]{width:100%;padding:12px 14px;border:1px solid #ffffff22;border-radius:10px;background:#0b1115;color:#f5f4ef;font-size:.9rem}
+.swatch-row{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{width:36px;height:36px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.swatch.selected{border-color:#e7c77f;box-shadow:0 0 0 2px #e7c77f44}
+.creator-preview{width:80px;height:80px;margin:0 auto 16px;border-radius:50%;background:#1a2228;border:2px solid #ffffff14}
+.creator-actions{display:flex;gap:10px;margin-top:20px}
+.creator-actions button{flex:1;padding:14px;border:none;border-radius:12px;font-weight:800;letter-spacing:.08em;font-size:.85rem}
+.creator-actions .primary{background:linear-gradient(135deg,#e7c77f,#c9a45a);color:#1a1408}
+.creator-actions .secondary{background:#1a2228;color:#e8e6df;border:1px solid #ffffff22}
+.hud-name{font-size:.7rem;color:#e7c77f;letter-spacing:.08em}
+
+.panel-overlay{position:absolute;inset:0;background:#080b0ecc;display:grid;place-items:center;z-index:40;padding:16px}
+.panel{width:100%;max-width:360px;background:#0e1518f5;border:1px solid #ffffff18;border-radius:18px;padding:22px;box-shadow:0 24px 80px #000a;max-height:85dvh;overflow-y:auto}
+.panel h2{margin:0 0 6px;font-size:1.05rem;letter-spacing:.14em;color:#e7c77f}
+.panel .panel-sub{font-size:.62rem;color:#8c9698;letter-spacing:.1em;margin:0 0 16px}
+.panel-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.panel-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;background:#0b1115;border:1px solid #ffffff12;border-radius:12px}
+.panel-item strong{display:block;font-size:.82rem;color:#f5f4ef}
+.panel-item span{font-size:.62rem;color:#8c9698}
+.panel-item button{padding:8px 12px;border:none;border-radius:8px;background:linear-gradient(135deg,#e7c77f,#c9a45a);color:#1a1408;font-weight:800;font-size:.65rem;letter-spacing:.06em;white-space:nowrap}
+.panel-item button:disabled{opacity:.4;cursor:not-allowed}
+.panel-close{width:100%;padding:12px;border:1px solid #ffffff22;border-radius:10px;background:transparent;color:#e8e6df;font-size:.75rem;letter-spacing:.1em}
+.interact-prompt{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);padding:10px 18px;background:#0a0e11ee;border:1px solid #e7c77f55;border-radius:12px;color:#e7c77f;font-size:.72rem;letter-spacing:.1em;z-index:20;white-space:nowrap}
+.toast{position:absolute;top:80px;left:50%;transform:translateX(-50%);padding:10px 16px;background:#1a2a22ee;border:1px solid #9cc49b66;border-radius:10px;color:#9cc49b;font-size:.7rem;letter-spacing:.08em;z-index:25;animation:fadeToast 2.5s forwards}
+@keyframes fadeToast{0%{opacity:0;transform:translateX(-50%) translateY(-8px)}10%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0}}
+.hud-actions{display:flex;gap:6px;flex-wrap:wrap}
+.hud-actions button{padding:5px 10px;border:1px solid #ffffff28;border-radius:8px;background:#0b1115cc;color:#e8e6df;font-size:.55rem;letter-spacing:.06em}
 
 @keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
@@ -79,11 +108,8 @@ button{font:inherit;cursor:pointer}
 @media(max-width:700px){
   .hud-top{height:58px}
   .hud-place{font-size:.58rem}
-  .hud-place small{font-size:.48rem}
   .hud-money{font-size:.82rem}
   .mission-chip{top:auto;bottom:120px;right:10px;width:170px;padding:10px}
-  .mission-chip strong{font-size:.74rem}
-  .mission-chip span{font-size:.58rem}
   .location-chip{top:10px;left:10px;padding:9px}
   .controls-help{right:10px;bottom:10px;max-width:160px;padding:8px}
   .controls-help span,.controls-help strong{display:none}
