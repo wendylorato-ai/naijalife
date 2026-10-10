@@ -362,7 +362,7 @@ function buildWorld(scene, appearance) {
   camera.maxCameraSpeed = 20;
   camera.lowerRadiusLimit = 4;
   camera.upperRadiusLimit = 16;
-  camera.attachControl(true);
+  // Custom game controls handle movement/turning; do not attach Babylon camera controls here.
 
   return {
     player, camera, traffic, colliders, vehicle, markers, npcs,
