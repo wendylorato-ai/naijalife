@@ -78,7 +78,13 @@ function buildWorld(scene, appearance) {
     shoe: mat(scene, "sh2", "#1a1a1a"),
     marker: mat(scene, "mk", "#e7c77f", "#b8943f"),
     npc: mat(scene, "np", "#5a4a3a"),
-    sand: mat(scene, "sd", "#a89870")
+    sand: mat(scene, "sd", "#a89870"),
+    yellow: mat(scene, "yl", "#d9b43a"),
+    greenDeep: mat(scene, "gd", "#123c2b"),
+    rust: mat(scene, "rs", "#7a3e27"),
+    white: mat(scene, "wh", "#eee8d5"),
+    blueSign: mat(scene, "bs", "#184b73"),
+    redSign: mat(scene, "rss", "#a53d2e")
   };
   const colliders = [];
 
@@ -199,6 +205,80 @@ function buildWorld(scene, appearance) {
     traffic.push({ body, cabin, z: body.position.z, speed: 5.5 + i * 0.5 });
   }
 
+  // Nigerian/Lagos street dressing — deliberately built from simple, mobile-friendly meshes.
+  // The final project can swap these for CC0 packs without changing gameplay code.
+  function addSign(text, x, z, colorMat, rot = 0) {
+    const board = MeshBuilder.CreateBox("sign_" + text.replace(/\W/g, ""), { width: 3.8, height: 1.0, depth: 0.12 }, scene);
+    board.position.set(x, 2.2, z); board.rotation.y = rot; board.material = colorMat;
+    return board;
+  }
+  addSign("SHOP", -20, -18, M.blueSign, Math.PI / 2);
+  addSign("MAMA PUT", 20, 34, M.redSign, -Math.PI / 2);
+  addSign("PHARMACY", -20, 72, M.greenDeep, Math.PI / 2);
+  addSign("MYNAIJALIFE", 20, -72, M.yellow, -Math.PI / 2);
+
+  // Roadside kiosks / shops
+  [[-20,-18],[20,34],[-20,72],[20,-72]].forEach(([x,z],i)=>{
+    const shop = MeshBuilder.CreateBox("kiosk"+i,{width:5,height:2.5,depth:3.2},scene);
+    shop.position.set(x,1.25,z); shop.material = i%2 ? M.cream : M.concrete;
+    const awning = MeshBuilder.CreateBox("awning"+i,{width:5.4,height:.16,depth:1.1},scene);
+    awning.position.set(x,2.35,z + (i%2 ? -1.15 : 1.15)); awning.material = i%2 ? M.yellow : M.greenDeep;
+    colliders.push({x,z,hw:2.7,hd:1.8});
+  });
+
+  // Open drainage channels along the sidewalks.
+  [-13.0, 13.0].forEach(x=>{
+    const drain=MeshBuilder.CreateBox("drain",{width:0.65,height:0.18,depth:298},scene);
+    drain.position.set(x,0.02,0); drain.material=M.dark;
+    for(let z=-140;z<140;z+=4){
+      const slab=MeshBuilder.CreateBox("slab",{width:0.82,height:0.06,depth:1.0},scene);
+      slab.position.set(x,0.14,z); slab.material=M.pavement;
+    }
+  });
+
+  // Utility poles + overhead lines — a strong Nigerian street cue.
+  for(let z=-120;z<=120;z+=30){
+    const pole=MeshBuilder.CreateCylinder("utilpole",{height:7,diameter:0.18,tessellation:8},scene);
+    pole.position.set(-18,3.5,z); pole.material=M.dark;
+    const cross=MeshBuilder.CreateBox("crossarm",{width:2.6,height:0.12,depth:0.12},scene);
+    cross.position.set(-18,6.7,z); cross.material=M.dark;
+  }
+  const wireMat=mat(scene,"wire","#202326");
+  for(const y of [6.55,6.8]){
+    const wire=MeshBuilder.CreateTube("wire",{path:[new Vector3(-18,y,-135),new Vector3(-18,y,135)],radius:0.025},scene);
+    wire.material=wireMat;
+  }
+
+  // Water tanks on selected rooftops.
+  [[-28,-95],[47,-8],[-46,78]].forEach(([x,z],i)=>{
+    const tank=MeshBuilder.CreateCylinder("tank"+i,{height:1.4,diameter:1.5},scene);
+    tank.position.set(x,15,z); tank.material=M.blueSign;
+    const stand=MeshBuilder.CreateBox("tankstand"+i,{width:1.3,height:1.5,depth:1.3},scene);
+    stand.position.set(x,14.0,z); stand.material=M.dark;
+  });
+
+  // Lagos danfo-style minibus: yellow body + dark lower trim.
+  function makeDanfo(name,x,z,rot=0){
+    const root=MeshBuilder.CreateBox(name,{width:2.15,height:1.25,depth:4.8},scene);
+    root.position.set(x,0.8,z); root.rotation.y=rot; root.material=M.yellow;
+    const lower=MeshBuilder.CreateBox(name+"lower",{width:2.2,height:.35,depth:4.85},scene);
+    lower.parent=root; lower.position.set(0,-.35,0); lower.material=M.greenDeep;
+    const glass=MeshBuilder.CreateBox(name+"glass",{width:1.82,height:.65,depth:2.35},scene);
+    glass.parent=root; glass.position.set(0,.58,-.25); glass.material=M.glass;
+    return root;
+  }
+  makeDanfo("danfo1",-5.6,-48,0);
+  makeDanfo("danfo2",5.6,88,Math.PI);
+  makeDanfo("danfo3",3.5,-125,0);
+
+  // Roadside market tables / produce baskets.
+  [[-17,-2],[17,12],[-17,45],[17,58]].forEach(([x,z],i)=>{
+    const table=MeshBuilder.CreateBox("market"+i,{width:2.4,height:.75,depth:1.2},scene);
+    table.position.set(x,.45,z); table.material=M.rust;
+    const crate=MeshBuilder.CreateBox("crate"+i,{width:1.1,height:.35,depth:.8},scene);
+    crate.position.set(x,.98,z); crate.material=M.yellow;
+  });
+
   // Markers
   const markers = [];
   JOBS.forEach((j) => {
@@ -214,11 +294,16 @@ function buildWorld(scene, appearance) {
 
   // NPCs
   const npcs = [];
-  for (let i = 0; i < 8; i++) {
-    const root = MeshBuilder.CreateCapsule("npc" + i, { height: 1.9, radius: 0.32 }, scene);
-    root.position.set(i % 2 === 0 ? -9.5 : 9.5, 0.95, -50 + i * 22);
-    root.material = M.npc;
-    npcs.push({ mesh: root, z: root.position.z, speed: 1.3 + (i % 3) * 0.35, dir: i % 2 === 0 ? 1 : -1 });
+  const npcSkins = ["#5a3827","#6b3d28","#8d5524","#4a2f1f"];
+  const npcShirts = ["#f0eee4","#1b4332","#c9a227","#7b2638"];
+  for (let i = 0; i < 10; i++) {
+    const root = MeshBuilder.CreateTransformNode("npc" + i, scene);
+    root.position.set(i % 2 === 0 ? -9.5 : 9.5, 0, -58 + i * 13);
+    const body=MeshBuilder.CreateCapsule("npcbody"+i,{height:1.15,radius:.24},scene);
+    body.parent=root; body.position.y=.78; body.material=mat(scene,"nps"+i,npcShirts[i%npcShirts.length]);
+    const head=MeshBuilder.CreateSphere("npchead"+i,{diameter:.34,segments:10},scene);
+    head.parent=root; head.position.y=1.62; head.material=mat(scene,"nph"+i,npcSkins[i%npcSkins.length]);
+    npcs.push({ mesh: root, z: root.position.z, speed: 1.1 + (i % 3) * 0.3, dir: i % 2 === 0 ? 1 : -1 });
   }
 
   // ── Improved humanoid character (still procedural, better proportions) ──
@@ -358,9 +443,9 @@ export default function Home() {
 
   const updateLocation = useCallback((x, z) => {
     if (Math.abs(x) < 10) {
-      if (z > 60) setLocationName("NORTH AVENUE");
-      else if (z < -60) setLocationName("SOUTH AVENUE");
-      else setLocationName("LEKKI AVENUE");
+      if (z > 60) setLocationName("IKEJA NORTH");
+      else if (z < -60) setLocationName("IKEJA SOUTH");
+      else setLocationName("IKEJA • LAGOS");
     } else if (x < -10) setLocationName(z > 40 ? "NORTH-WEST" : z < -40 ? "SOUTH-WEST" : "WEST STREETS");
     else setLocationName(z > 40 ? "NORTH-EAST" : z < -40 ? "SOUTH-EAST" : "EAST STREETS");
   }, []);
