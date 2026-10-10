@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Engine, Scene, Vector3, Color4, Color3,
   HemisphericLight, DirectionalLight, MeshBuilder,
-  StandardMaterial, FollowCamera, Quaternion, Space
+  StandardMaterial, FollowCamera, Quaternion, TransformNode
 } from "@babylonjs/core";
 
 const SKIN_TONES = [
@@ -297,7 +297,7 @@ function buildWorld(scene, appearance) {
   const npcSkins = ["#5a3827","#6b3d28","#8d5524","#4a2f1f"];
   const npcShirts = ["#f0eee4","#1b4332","#c9a227","#7b2638"];
   for (let i = 0; i < 10; i++) {
-    const root = MeshBuilder.CreateTransformNode("npc" + i, scene);
+    const root = new TransformNode("npc" + i, scene);
     root.position.set(i % 2 === 0 ? -9.5 : 9.5, 0, -58 + i * 13);
     const body=MeshBuilder.CreateCapsule("npcbody"+i,{height:1.15,radius:.24},scene);
     body.parent=root; body.position.y=.78; body.material=mat(scene,"nps"+i,npcShirts[i%npcShirts.length]);
@@ -362,7 +362,7 @@ function buildWorld(scene, appearance) {
   camera.maxCameraSpeed = 20;
   camera.lowerRadiusLimit = 4;
   camera.upperRadiusLimit = 16;
-  // Custom game controls handle movement/turning; do not attach Babylon camera controls here.
+  camera.attachControl(true);
 
   return {
     player, camera, traffic, colliders, vehicle, markers, npcs,
@@ -374,6 +374,7 @@ export default function Home() {
   const [phase, setPhase] = useState("intro");
   const canvasRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState("");
   const [help, setHelp] = useState(true);
   const [coords, setCoords] = useState({ x: -3, z: 10 });
   const [paused, setPaused] = useState(false);
@@ -453,9 +454,22 @@ export default function Home() {
   useEffect(() => {
     if (phase !== "world" || !canvasRef.current || engineRef.current) return;
 
-    const engine = new Engine(canvasRef.current, true, { antialias: true, stencil: true, adaptToDeviceRatio: true });
-    const scene = new Scene(engine);
-    const world = buildWorld(scene, appearance);
+    let engine = null;
+    let scene = null;
+    let world = null;
+
+    try {
+      engine = new Engine(canvasRef.current, true, { antialias: true, stencil: true, adaptToDeviceRatio: true });
+      scene = new Scene(engine);
+      world = buildWorld(scene, appearance);
+    } catch (error) {
+      console.error("NaijaLife world initialization failed:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      setInitError(message);
+      try { scene?.dispose(); } catch {}
+      try { engine?.dispose(); } catch {}
+      return;
+    }
 
     engineRef.current = engine;
     playerRef.current = world.player;
@@ -800,7 +814,14 @@ export default function Home() {
     <main className="world-screen">
       <div className="game-stage">
         <canvas ref={canvasRef} className="world-canvas" aria-label="NaijaLife" />
-        {!ready && <div className="loading-world">BUILDING CITY...</div>}
+        {!ready && !initError && <div className="loading-world">BUILDING CITY...</div>}
+        {initError && (
+          <div className="loading-world" style={{ padding: 24, textAlign: "center" }}>
+            <strong>3D WORLD COULD NOT START</strong>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{initError}</div>
+            <button style={{ marginTop: 14 }} onClick={() => window.location.reload()}>RELOAD</button>
+          </div>
+        )}
 
         <div className="hud-top">
           <a className="wordmark" href="#" onClick={(e) => e.preventDefault()}>NAIJALIFE</a>
