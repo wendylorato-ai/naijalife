@@ -2,403 +2,349 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  Engine,
-  Scene,
-  Vector3,
-  Color4,
-  Color3,
-  HemisphericLight,
-  DirectionalLight,
-  MeshBuilder,
-  StandardMaterial,
-  FollowCamera,
-  Quaternion
+  Engine, Scene, Vector3, Color4, Color3,
+  HemisphericLight, DirectionalLight, MeshBuilder,
+  StandardMaterial, FollowCamera, Quaternion
 } from "@babylonjs/core";
 
-/* ── helpers ── */
-function makeMaterial(scene, name, color, emissive = null) {
+const SKIN_TONES = [
+  { id: "deep", hex: "#5c3a24" }, { id: "rich", hex: "#7a4a2e" },
+  { id: "warm", hex: "#9b6545" }, { id: "medium", hex: "#b8835a" },
+  { id: "light", hex: "#d4a574" }
+];
+const SHIRT_COLORS = [
+  { id: "gold", hex: "#d2a95c" }, { id: "green", hex: "#2d6a4f" },
+  { id: "blue", hex: "#1d4e89" }, { id: "red", hex: "#9b2226" },
+  { id: "white", hex: "#e8e6df" }, { id: "black", hex: "#1a1a1a" }
+];
+const TROUSER_COLORS = [
+  { id: "navy", hex: "#283c4b" }, { id: "black", hex: "#1c1c1c" },
+  { id: "khaki", hex: "#8b7355" }, { id: "denim", hex: "#3d5a80" },
+  { id: "brown", hex: "#5c4033" }
+];
+
+const JOBS = [
+  { id: "courier", name: "Okada / Courier Run", pay: 3500, desc: "Deliver parcels along the avenue", x: -8, z: 25 },
+  { id: "shop", name: "Shop Assistant", pay: 5000, desc: "Help at the corner store", x: 22, z: -20 },
+  { id: "security", name: "Gate Security", pay: 4500, desc: "Watch the estate entrance", x: -30, z: 55 }
+];
+
+const PROPERTIES = [
+  { id: "studio", name: "Lekki Studio Flat", rent: 12000, desc: "Small but close to the avenue", x: 35, z: 10 },
+  { id: "room", name: "Self-Contain Room", rent: 8000, desc: "Affordable side-street room", x: -38, z: -40 },
+  { id: "shopunit", name: "Roadside Shop Unit", rent: 25000, desc: "Start a small business here", x: 20, z: 45 }
+];
+
+const MISSIONS = [
+  { id: "explore", title: "Explore the District", desc: "Walk past X±40 or Z±50", check: (s) => Math.abs(s.x) > 40 || Math.abs(s.z) > 50, reward: 2000 },
+  { id: "work", title: "Earn Your First Pay", desc: "Complete any job once", check: (s) => s.jobsDone >= 1, reward: 1500 },
+  { id: "drive", title: "Take a Drive", desc: "Enter and drive a vehicle", check: (s) => s.hasDriven, reward: 2500 },
+  { id: "home", title: "Find Shelter", desc: "Rent any property", check: (s) => !!s.homeId, reward: 3000 }
+];
+
+function mat(scene, name, color, emissive = null) {
   const m = new StandardMaterial(name, scene);
   m.diffuseColor = Color3.FromHexString(color);
   if (emissive) m.emissiveColor = Color3.FromHexString(emissive);
   return m;
 }
 
-/** Simple AABB collision helpers */
-function aabbOverlap(ax, az, aw, ad, bx, bz, bw, bd) {
-  return (
-    Math.abs(ax - bx) < (aw + bw) * 0.5 &&
-    Math.abs(az - bz) < (ad + bd) * 0.5
-  );
+function aabb(ax, az, aw, ad, bx, bz, bw, bd) {
+  return Math.abs(ax - bx) < (aw + bw) * 0.5 && Math.abs(az - bz) < (ad + bd) * 0.5;
 }
 
-function buildWorld(scene) {
-  const mats = {
-    grass: makeMaterial(scene, "district-green", "#35483d"),
-    road: makeMaterial(scene, "asphalt", "#20262a"),
-    pavement: makeMaterial(scene, "pavement", "#8b8d87"),
-    line: makeMaterial(scene, "road-markings", "#e6d6a6"),
-    zebra: makeMaterial(scene, "zebra", "#d8d6cc"),
-    glass: makeMaterial(scene, "blue-glass", "#3f6671"),
-    concrete: makeMaterial(scene, "warm-concrete", "#b6aa95"),
-    cream: makeMaterial(scene, "cream-building", "#d2c4a8"),
-    dark: makeMaterial(scene, "dark-building", "#59615e"),
-    roof: makeMaterial(scene, "roof", "#353d3d"),
-    palm: makeMaterial(scene, "palm-trunk", "#5a4533"),
-    leaf: makeMaterial(scene, "palm-leaf", "#315b42"),
-    lamp: makeMaterial(scene, "lamp-light", "#e9c878", "#d6a74c"),
-    carRed: makeMaterial(scene, "car-red", "#a64b3f"),
-    carBlue: makeMaterial(scene, "car-blue", "#416f8b"),
-    carBlack: makeMaterial(scene, "car-black", "#262b31"),
-    white: makeMaterial(scene, "car-white", "#d6d8d4"),
-    skin: makeMaterial(scene, "character-skin", "#9b6545"),
-    shirt: makeMaterial(scene, "character-shirt", "#d2a95c"),
-    trousers: makeMaterial(scene, "character-trousers", "#283c4b"),
-    planter: makeMaterial(scene, "planter", "#4a5c48"),
-    soil: makeMaterial(scene, "soil", "#3d3228"),
-    sign: makeMaterial(scene, "sign-board", "#1e2a30"),
-    signGold: makeMaterial(scene, "sign-gold", "#c9a45a", "#a07830"),
-    bench: makeMaterial(scene, "bench", "#6b5344")
+function buildWorld(scene, appearance) {
+  const M = {
+    grass: mat(scene, "g", "#35483d"), road: mat(scene, "r", "#20262a"),
+    pavement: mat(scene, "p", "#8b8d87"), line: mat(scene, "l", "#e6d6a6"),
+    zebra: mat(scene, "z", "#d8d6cc"), glass: mat(scene, "gl", "#3f6671"),
+    concrete: mat(scene, "c", "#b6aa95"), cream: mat(scene, "cr", "#d2c4a8"),
+    dark: mat(scene, "d", "#59615e"), roof: mat(scene, "rf", "#353d3d"),
+    palm: mat(scene, "pt", "#5a4533"), leaf: mat(scene, "lf", "#315b42"),
+    lamp: mat(scene, "lp", "#e9c878", "#d6a74c"),
+    carRed: mat(scene, "cr2", "#a64b3f"), carBlue: mat(scene, "cb", "#416f8b"),
+    carBlack: mat(scene, "ck", "#262b31"), white: mat(scene, "w", "#d6d8d4"),
+    skin: mat(scene, "sk", appearance.skin), shirt: mat(scene, "sh", appearance.shirt),
+    trousers: mat(scene, "tr", appearance.trousers),
+    planter: mat(scene, "pl", "#4a5c48"), soil: mat(scene, "so", "#3d3228"),
+    bench: mat(scene, "be", "#6b5344"), marker: mat(scene, "mk", "#e7c77f", "#c9a45a"),
+    npc: mat(scene, "np", "#6b5344")
   };
-
-  // Collision boxes collected for player checks (x, z, halfW, halfD)
   const colliders = [];
 
-  // Ground
-  const ground = MeshBuilder.CreateGround("district-ground", { width: 180, height: 180 }, scene);
-  ground.position.y = -0.08;
-  ground.material = mats.grass;
+  const ground = MeshBuilder.CreateGround("gnd", { width: 320, height: 320 }, scene);
+  ground.position.y = -0.08; ground.material = M.grass;
 
-  // Main avenue
-  const avenue = MeshBuilder.CreateBox("lekki-avenue", { width: 16, height: 0.12, depth: 150 }, scene);
-  avenue.position.y = 0;
-  avenue.material = mats.road;
-
-  // Centre dashed line
-  for (let z = -68; z <= 68; z += 10) {
-    const dash = MeshBuilder.CreateBox("road-dash", { width: 0.22, height: 0.025, depth: 4.5 }, scene);
-    dash.position.set(0, 0.075, z);
-    dash.material = mats.line;
+  const avenue = MeshBuilder.CreateBox("ave", { width: 18, height: 0.12, depth: 280 }, scene);
+  avenue.position.y = 0; avenue.material = M.road;
+  for (let z = -130; z <= 130; z += 10) {
+    const d = MeshBuilder.CreateBox("dash", { width: 0.22, height: 0.025, depth: 4.5 }, scene);
+    d.position.set(0, 0.075, z); d.material = M.line;
   }
-
-  // Edge solid lines
-  [-7.6, 7.6].forEach((x) => {
-    const edge = MeshBuilder.CreateBox("edge-line", { width: 0.12, height: 0.02, depth: 148 }, scene);
-    edge.position.set(x, 0.07, 0);
-    edge.material = mats.line;
+  [-8.5, 8.5].forEach((x) => {
+    const e = MeshBuilder.CreateBox("edge", { width: 0.12, height: 0.02, depth: 278 }, scene);
+    e.position.set(x, 0.07, 0); e.material = M.line;
+  });
+  [-11.5, 11.5].forEach((x) => {
+    const w = MeshBuilder.CreateBox("walk", { width: 3.5, height: 0.25, depth: 280 }, scene);
+    w.position.set(x, 0.05, 0); w.material = M.pavement;
   });
 
-  // Sidewalks
-  [-10, 10].forEach((x) => {
-    const walk = MeshBuilder.CreateBox("sidewalk", { width: 3, height: 0.25, depth: 150 }, scene);
-    walk.position.set(x, 0.05, 0);
-    walk.material = mats.pavement;
-  });
-
-  // Cross streets + zebra crosswalks
-  [-44, -18, 18, 44].forEach((z) => {
-    const side = MeshBuilder.CreateBox("cross-street", { width: 130, height: 0.11, depth: 9 }, scene);
-    side.position.set(0, -0.005, z);
-    side.material = mats.road;
-
-    // Cross-street dashed marks
-    for (let x = -55; x <= 55; x += 12) {
-      const mark = MeshBuilder.CreateBox("cross-road-mark", { width: 5, height: 0.02, depth: 0.18 }, scene);
-      mark.position.set(x, 0.06, z);
-      mark.material = mats.line;
-    }
-
-    // Zebra crosswalks on the main avenue at each intersection
-    for (let i = -3; i <= 3; i++) {
-      const stripe = MeshBuilder.CreateBox("zebra", { width: 1.1, height: 0.03, depth: 0.55 }, scene);
-      stripe.position.set(i * 1.5, 0.08, z);
-      stripe.material = mats.zebra;
+  [-100, -70, -40, -15, 15, 40, 70, 100].forEach((z) => {
+    const side = MeshBuilder.CreateBox("cross", { width: 220, height: 0.11, depth: 10 }, scene);
+    side.position.set(0, -0.005, z); side.material = M.road;
+    for (let i = -4; i <= 4; i++) {
+      const s = MeshBuilder.CreateBox("zb", { width: 1.2, height: 0.03, depth: 0.55 }, scene);
+      s.position.set(i * 1.5, 0.08, z); s.material = M.zebra;
     }
   });
 
-  // Streetlights
-  for (let z = -65; z <= 65; z += 16) {
-    [-12.4, 12.4].forEach((x) => {
-      const pole = MeshBuilder.CreateCylinder("streetlight-pole", { height: 5.4, diameter: 0.12 }, scene);
-      pole.position.set(x, 2.7, z);
-      pole.material = mats.dark;
-      const arm = MeshBuilder.CreateBox("streetlight-arm", { width: 1.15, height: 0.1, depth: 0.1 }, scene);
-      arm.position.set(x + (x < 0 ? 0.45 : -0.45), 5.2, z);
-      arm.material = mats.dark;
-      const bulb = MeshBuilder.CreateSphere("streetlight-bulb", { diameter: 0.28 }, scene);
-      bulb.position.set(x + (x < 0 ? 0.85 : -0.85), 5.1, z);
-      bulb.material = mats.lamp;
+  for (let z = -125; z <= 125; z += 18) {
+    [-14, 14].forEach((x) => {
+      const pole = MeshBuilder.CreateCylinder("pole", { height: 5.4, diameter: 0.12 }, scene);
+      pole.position.set(x, 2.7, z); pole.material = M.dark;
+      const bulb = MeshBuilder.CreateSphere("bulb", { diameter: 0.28 }, scene);
+      bulb.position.set(x + (x < 0 ? 0.85 : -0.85), 5.1, z); bulb.material = M.lamp;
     });
   }
 
-  // Planters along sidewalks
-  for (let z = -58; z <= 58; z += 22) {
-    [-11.2, 11.2].forEach((x) => {
-      const box = MeshBuilder.CreateBox("planter-box", { width: 1.4, height: 0.55, depth: 1.4 }, scene);
-      box.position.set(x, 0.35, z);
-      box.material = mats.planter;
-      const dirt = MeshBuilder.CreateBox("planter-soil", { width: 1.1, height: 0.12, depth: 1.1 }, scene);
-      dirt.position.set(x, 0.65, z);
-      dirt.material = mats.soil;
-      // Small bush
-      const bush = MeshBuilder.CreateSphere("planter-bush", { diameter: 0.9 }, scene);
-      bush.position.set(x, 1.05, z);
-      bush.material = mats.leaf;
-      bush.scaling.y = 0.7;
+  for (let z = -120; z <= 120; z += 24) {
+    [-12.8, 12.8].forEach((x) => {
+      const box = MeshBuilder.CreateBox("plb", { width: 1.4, height: 0.55, depth: 1.4 }, scene);
+      box.position.set(x, 0.35, z); box.material = M.planter;
+      const bush = MeshBuilder.CreateSphere("bush", { diameter: 0.9 }, scene);
+      bush.position.set(x, 1.05, z); bush.material = M.leaf; bush.scaling.y = 0.7;
     });
   }
 
-  // Benches
-  for (let z = -50; z <= 50; z += 40) {
-    [-13.5, 13.5].forEach((x) => {
-      const seat = MeshBuilder.CreateBox("bench-seat", { width: 0.5, height: 0.12, depth: 1.8 }, scene);
-      seat.position.set(x, 0.55, z);
-      seat.material = mats.bench;
-      const back = MeshBuilder.CreateBox("bench-back", { width: 0.1, height: 0.55, depth: 1.8 }, scene);
-      back.position.set(x + (x < 0 ? -0.2 : 0.2), 0.8, z);
-      back.material = mats.bench;
-      // Legs
-      [-0.7, 0.7].forEach((dz) => {
-        const leg = MeshBuilder.CreateBox("bench-leg", { width: 0.1, height: 0.45, depth: 0.1 }, scene);
-        leg.position.set(x, 0.25, z + dz);
-        leg.material = mats.dark;
-      });
-    });
-  }
-
-  // District welcome sign near spawn
-  const signPost = MeshBuilder.CreateCylinder("sign-post", { height: 3.2, diameter: 0.14 }, scene);
-  signPost.position.set(-14, 1.6, 12);
-  signPost.material = mats.dark;
-  const signBoard = MeshBuilder.CreateBox("sign-board", { width: 0.12, height: 1.4, depth: 3.2 }, scene);
-  signBoard.position.set(-14, 3.4, 12);
-  signBoard.material = mats.sign;
-  const signAccent = MeshBuilder.CreateBox("sign-accent", { width: 0.14, height: 0.18, depth: 3.0 }, scene);
-  signAccent.position.set(-14, 4.0, 12);
-  signAccent.material = mats.signGold;
-
-  // Buildings (lots: x, z, w, h, d, kind)
   const lots = [
-    [-25, -54, 12, 18, 10, "dark"],
-    [-40, -48, 13, 22, 14, "cream"],
-    [-26, -28, 11, 17, 9, "glass"],
-    [-42, -20, 15, 20, 12, "concrete"],
-    [-27, 1, 12, 23, 15, "glass"],
-    [-43, 12, 14, 16, 10, "cream"],
-    [-27, 34, 12, 18, 11, "concrete"],
-    [-43, 52, 14, 26, 16, "glass"],
-    [27, -55, 14, 22, 13, "cream"],
-    [43, -45, 15, 28, 18, "glass"],
-    [27, -27, 12, 16, 10, "concrete"],
-    [43, -15, 14, 22, 14, "cream"],
-    [27, 6, 12, 28, 18, "glass"],
-    [43, 20, 15, 18, 12, "concrete"],
-    [27, 40, 12, 19, 12, "cream"],
-    [43, 54, 15, 24, 16, "glass"],
-    [-63, -35, 18, 13, 8, "concrete"],
-    [-65, 8, 18, 15, 10, "cream"],
-    [64, -35, 18, 17, 10, "glass"],
-    [64, 35, 18, 14, 9, "concrete"]
+    [-28,-90,14,20,12,"cream"],[-45,-85,15,24,14,"glass"],[-28,-60,13,18,11,"concrete"],
+    [-46,-55,16,22,13,"cream"],[-29,-30,12,26,14,"glass"],[-47,-25,15,19,12,"concrete"],
+    [-28,-5,13,21,11,"cream"],[-46,5,14,28,15,"glass"],[-29,30,12,17,10,"concrete"],
+    [-47,40,15,23,13,"cream"],[-28,65,13,20,12,"glass"],[-46,80,16,25,14,"concrete"],
+    [28,-95,14,22,13,"cream"],[46,-88,15,26,15,"glass"],[29,-62,13,18,11,"concrete"],
+    [47,-50,16,24,14,"cream"],[28,-28,12,20,12,"glass"],[46,-15,15,22,13,"concrete"],
+    [29,10,13,27,15,"cream"],[47,25,14,19,11,"glass"],[28,50,12,21,12,"concrete"],
+    [46,70,15,24,14,"cream"],[29,95,13,18,11,"glass"],
+    [-70,-70,18,16,12,"concrete"],[-72,-30,20,18,14,"cream"],[-70,20,18,22,13,"glass"],
+    [70,-75,18,19,13,"cream"],[72,-25,20,21,14,"glass"],[70,30,18,16,11,"concrete"],
+    [-40,120,16,18,12,"glass"],[40,120,16,20,13,"cream"],[-40,-120,15,17,11,"concrete"],[40,-120,15,19,12,"glass"]
   ];
-
   lots.forEach((lot, idx) => {
     const [x, z, w, h, d, kind] = lot;
-    const mat =
-      kind === "glass"
-        ? mats.glass
-        : kind === "cream"
-          ? mats.cream
-          : kind === "concrete"
-            ? mats.concrete
-            : mats.dark;
-    const building = MeshBuilder.CreateBox("building-" + idx, { width: w, height: h, depth: d }, scene);
-    building.position.set(x, h / 2, z);
-    building.material = mat;
-    const roof = MeshBuilder.CreateBox("building-roof-" + idx, { width: w + 0.35, height: 0.45, depth: d + 0.35 }, scene);
-    roof.position.set(x, h + 0.2, z);
-    roof.material = mats.roof;
-
-    // Window grids facing avenue
-    const facingX = x < 0 ? x + w / 2 + 0.025 : x - w / 2 - 0.025;
-    for (let yy = 2; yy < h - 1; yy += 3) {
-      for (let zz = z - d / 2 + 1.5; zz < z + d / 2 - 0.5; zz += 2.6) {
-        const win = MeshBuilder.CreateBox("window", { width: 0.08, height: 1.25, depth: 1.15 }, scene);
-        win.position.set(facingX, yy, zz);
-        win.material = mats.dark;
-      }
-    }
-    // Entrance
-    const door = MeshBuilder.CreateBox("entrance", { width: 0.16, height: 2.3, depth: 1.4 }, scene);
-    door.position.set(facingX + (x < 0 ? 0.06 : -0.06), 1.15, z);
-    door.material = mats.roof;
-
-    // Register collision (slightly larger for comfort)
-    colliders.push({ x, z, hw: w / 2 + 0.35, hd: d / 2 + 0.35 });
+    const mtl = kind === "glass" ? M.glass : kind === "cream" ? M.cream : M.concrete;
+    const b = MeshBuilder.CreateBox("b" + idx, { width: w, height: h, depth: d }, scene);
+    b.position.set(x, h / 2, z); b.material = mtl;
+    const roof = MeshBuilder.CreateBox("br" + idx, { width: w + 0.35, height: 0.45, depth: d + 0.35 }, scene);
+    roof.position.set(x, h + 0.2, z); roof.material = M.roof;
+    colliders.push({ x, z, hw: w / 2 + 0.4, hd: d / 2 + 0.4 });
   });
 
-  // Decorative palms
-  for (let z = -62; z <= 62; z += 20) {
-    [-16, 16].forEach((x) => {
-      const trunk = MeshBuilder.CreateCylinder("palm-trunk", { height: 4.6, diameterTop: 0.25, diameterBottom: 0.42 }, scene);
-      trunk.position.set(x, 2.3, z);
-      trunk.material = mats.palm;
+  for (let z = -120; z <= 120; z += 22) {
+    [-18, 18].forEach((x) => {
+      const trunk = MeshBuilder.CreateCylinder("palm", { height: 4.6, diameterTop: 0.25, diameterBottom: 0.42 }, scene);
+      trunk.position.set(x, 2.3, z); trunk.material = M.palm;
       for (let a = 0; a < 6; a++) {
-        const frond = MeshBuilder.CreateBox("palm-frond", { width: 0.28, height: 0.12, depth: 3.6 }, scene);
-        frond.position.set(x, 4.45, z);
-        frond.rotation.y = (a * Math.PI) / 3;
-        frond.rotation.x = -0.18;
-        frond.material = mats.leaf;
+        const f = MeshBuilder.CreateBox("fr", { width: 0.28, height: 0.12, depth: 3.6 }, scene);
+        f.position.set(x, 4.45, z); f.rotation.y = (a * Math.PI) / 3; f.rotation.x = -0.18; f.material = M.leaf;
       }
-      // Small collision for palm trunks
-      colliders.push({ x, z, hw: 0.5, hd: 0.5 });
+      colliders.push({ x, z, hw: 0.55, hd: 0.55 });
     });
   }
 
-  // Parked cars
-  const carMats = [mats.carRed, mats.carBlue, mats.carBlack, mats.white];
-  for (let i = 0; i < 8; i++) {
-    const z = -58 + i * 16;
-    const x = i % 2 === 0 ? -5.6 : 5.6;
-    const body = MeshBuilder.CreateBox("city-car-" + i, { width: 2.1, height: 0.85, depth: 4.2 }, scene);
-    body.position.set(x, 0.65, z);
-    body.material = carMats[i % carMats.length];
-    const cabin = MeshBuilder.CreateBox("car-cabin-" + i, { width: 1.55, height: 0.65, depth: 1.9 }, scene);
-    cabin.position.set(x, 1.28, z - 0.15);
-    cabin.material = mats.glass;
+  // Parked cars (non-driveable scenery)
+  const carMats = [M.carRed, M.carBlue, M.carBlack, M.white];
+  for (let i = 0; i < 10; i++) {
+    const z = -100 + i * 20;
+    const x = i % 2 === 0 ? -6.2 : 6.2;
+    const body = MeshBuilder.CreateBox("pc" + i, { width: 2.1, height: 0.85, depth: 4.2 }, scene);
+    body.position.set(x, 0.65, z); body.material = carMats[i % 4];
+    const cabin = MeshBuilder.CreateBox("pcc" + i, { width: 1.55, height: 0.65, depth: 1.9 }, scene);
+    cabin.position.set(x, 1.28, z - 0.15); cabin.material = M.glass;
     colliders.push({ x, z, hw: 1.2, hd: 2.3 });
   }
 
-  // Moving traffic
-  const cars = [];
-  for (let i = 0; i < 3; i++) {
-    const body = MeshBuilder.CreateBox("traffic-car-" + i, { width: 2.1, height: 0.85, depth: 4.2 }, scene);
-    body.position.set(3.4, 0.65, -45 + i * 38);
-    body.material = carMats[(i + 1) % carMats.length];
-    const cabin = MeshBuilder.CreateBox("traffic-cabin-" + i, { width: 1.55, height: 0.65, depth: 1.9 }, scene);
-    cabin.position.set(3.4, 1.28, -45 + i * 38 - 0.15);
-    cabin.material = mats.glass;
-    cars.push({ body, cabin, z: body.position.z, speed: 4.2 + i * 0.8 });
+  // Player vehicle (driveable)
+  const vBody = MeshBuilder.CreateBox("player-car", { width: 2.2, height: 0.9, depth: 4.4 }, scene);
+  vBody.position.set(5.5, 0.7, 12); vBody.material = M.carBlue;
+  const vCabin = MeshBuilder.CreateBox("player-car-cabin", { width: 1.6, height: 0.7, depth: 2 }, scene);
+  vCabin.parent = vBody; vCabin.position.set(0, 0.7, -0.2); vCabin.material = M.glass;
+  const vehicle = { body: vBody, cabin: vCabin, occupied: false };
+
+  // Traffic
+  const traffic = [];
+  for (let i = 0; i < 4; i++) {
+    const body = MeshBuilder.CreateBox("tc" + i, { width: 2.1, height: 0.85, depth: 4.2 }, scene);
+    body.position.set(3.8, 0.65, -90 + i * 50); body.material = carMats[(i + 1) % 4];
+    const cabin = MeshBuilder.CreateBox("tcc" + i, { width: 1.55, height: 0.65, depth: 1.9 }, scene);
+    cabin.position.set(3.8, 1.28, -90 + i * 50 - 0.15); cabin.material = M.glass;
+    traffic.push({ body, cabin, z: body.position.z, speed: 5 + i * 0.6 });
   }
 
-  // Player avatar (capsule for collision + visual parts)
-  const player = MeshBuilder.CreateCapsule("player-body", { height: 2.4, radius: 0.42 }, scene);
-  player.position.set(-2.7, 1.2, 5);
-  player.material = mats.shirt;
-  player.isPickable = false;
-  player.visibility = 0; // invisible collision capsule; visual parts are children
+  // Job / property markers (glowing pillars)
+  const markers = [];
+  JOBS.forEach((j) => {
+    const m = MeshBuilder.CreateCylinder("job-" + j.id, { height: 2.2, diameter: 0.5 }, scene);
+    m.position.set(j.x, 1.1, j.z); m.material = M.marker;
+    markers.push({ mesh: m, type: "job", id: j.id, x: j.x, z: j.z });
+  });
+  PROPERTIES.forEach((p) => {
+    const m = MeshBuilder.CreateBox("prop-" + p.id, { width: 0.6, height: 2.2, depth: 0.6 }, scene);
+    m.position.set(p.x, 1.1, p.z); m.material = M.lamp;
+    markers.push({ mesh: m, type: "property", id: p.id, x: p.x, z: p.z });
+  });
 
-  const head = MeshBuilder.CreateSphere("player-head", { diameter: 0.68 }, scene);
-  head.parent = player;
-  head.position.set(0, 0.78, 0);
-  head.material = mats.skin;
+  // Simple NPC pedestrians
+  const npcs = [];
+  for (let i = 0; i < 6; i++) {
+    const root = MeshBuilder.CreateCapsule("npc" + i, { height: 2.0, radius: 0.35 }, scene);
+    root.position.set((i % 2 === 0 ? -10 : 10), 1.0, -40 + i * 25);
+    root.material = M.npc;
+    npcs.push({
+      mesh: root,
+      z: root.position.z,
+      x: root.position.x,
+      speed: 1.5 + (i % 3) * 0.4,
+      dir: i % 2 === 0 ? 1 : -1
+    });
+  }
 
-  const torso = MeshBuilder.CreateBox("player-torso", { width: 0.8, height: 0.8, depth: 0.42 }, scene);
-  torso.parent = player;
-  torso.position.set(0, -0.1, 0);
-  torso.material = mats.shirt;
+  // Player avatar
+  const player = MeshBuilder.CreateCapsule("player", { height: 2.4, radius: 0.42 }, scene);
+  player.position.set(-3.2, 1.2, 8); player.visibility = 0; player.isPickable = false;
 
-  const leg1 = MeshBuilder.CreateBox("player-leg-left", { width: 0.25, height: 0.65, depth: 0.28 }, scene);
-  leg1.parent = player;
-  leg1.position.set(-0.2, -0.83, 0);
-  leg1.material = mats.trousers;
-
-  const leg2 = MeshBuilder.CreateBox("player-leg-right", { width: 0.25, height: 0.65, depth: 0.28 }, scene);
-  leg2.parent = player;
-  leg2.position.set(0.2, -0.83, 0);
-  leg2.material = mats.trousers;
-
+  const head = MeshBuilder.CreateSphere("head", { diameter: 0.68 }, scene);
+  head.parent = player; head.position.set(0, 0.78, 0); head.material = M.skin;
+  const torso = MeshBuilder.CreateBox("torso", { width: 0.8, height: 0.8, depth: 0.42 }, scene);
+  torso.parent = player; torso.position.set(0, -0.1, 0); torso.material = M.shirt;
+  const legL = MeshBuilder.CreateBox("legL", { width: 0.25, height: 0.65, depth: 0.28 }, scene);
+  legL.parent = player; legL.position.set(-0.2, -0.83, 0); legL.material = M.trousers;
+  const legR = MeshBuilder.CreateBox("legR", { width: 0.25, height: 0.65, depth: 0.28 }, scene);
+  legR.parent = player; legR.position.set(0.2, -0.83, 0); legR.material = M.trousers;
+  const armL = MeshBuilder.CreateBox("armL", { width: 0.18, height: 0.55, depth: 0.18 }, scene);
+  armL.parent = player; armL.position.set(-0.55, -0.05, 0); armL.material = M.skin;
+  const armR = MeshBuilder.CreateBox("armR", { width: 0.18, height: 0.55, depth: 0.18 }, scene);
+  armR.parent = player; armR.position.set(0.55, -0.05, 0); armR.material = M.skin;
   player.rotationQuaternion = Quaternion.Identity();
 
-  // Lighting
-  scene.clearColor = new Color4(0.45, 0.62, 0.68, 1);
-  const hemi = new HemisphericLight("ambient-sky", new Vector3(0, 1, 0), scene);
-  hemi.intensity = 0.8;
-  hemi.groundColor = new Color3(0.25, 0.23, 0.19);
-  const sun = new DirectionalLight("late-afternoon-sun", new Vector3(-0.5, -1, 0.25), scene);
-  sun.position = new Vector3(25, 50, -30);
-  sun.intensity = 1.2;
+  scene.clearColor = new Color4(0.48, 0.64, 0.7, 1);
+  const hemi = new HemisphericLight("h", new Vector3(0, 1, 0), scene);
+  hemi.intensity = 0.85; hemi.groundColor = new Color3(0.25, 0.23, 0.19);
+  const sun = new DirectionalLight("s", new Vector3(-0.5, -1, 0.25), scene);
+  sun.position = new Vector3(40, 60, -40); sun.intensity = 1.25;
 
-  // Third-person follow camera
-  const camera = new FollowCamera("third-person-camera", new Vector3(0, 5, -10), scene);
+  const camera = new FollowCamera("cam", new Vector3(0, 6, -12), scene);
   camera.lockedTarget = player;
-  camera.radius = 8.5;
-  camera.heightOffset = 3.0;
-  camera.rotationOffset = 180;
-  camera.cameraAcceleration = 0.08;
-  camera.maxCameraSpeed = 14;
-  camera.lowerRadiusLimit = 5;
-  camera.upperRadiusLimit = 16;
+  camera.radius = 10; camera.heightOffset = 3.4; camera.rotationOffset = 180;
+  camera.cameraAcceleration = 0.07; camera.maxCameraSpeed = 18;
+  camera.lowerRadiusLimit = 6; camera.upperRadiusLimit = 24;
   camera.attachControl(true);
 
-  return { player, camera, cars, colliders };
+  return {
+    player, camera, traffic, colliders, vehicle, markers, npcs,
+    parts: { head, torso, legL, legR, armL, armR }
+  };
 }
 
-/* ── Main component ── */
 export default function Home() {
   const [phase, setPhase] = useState("intro");
   const canvasRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [help, setHelp] = useState(true);
-  const [coords, setCoords] = useState({ x: -3, z: 5 });
+  const [coords, setCoords] = useState({ x: -3, z: 8 });
   const [paused, setPaused] = useState(false);
   const [locationName, setLocationName] = useState("LEKKI AVENUE");
+  const [charName, setCharName] = useState("Player");
+  const [skinId, setSkinId] = useState("warm");
+  const [shirtId, setShirtId] = useState("gold");
+  const [trouserId, setTrouserId] = useState("navy");
 
-  // Persistent refs so pause doesn't destroy the scene
+  // Economy & progression
+  const [cash, setCash] = useState(25000);
+  const [jobsDone, setJobsDone] = useState(0);
+  const [hasDriven, setHasDriven] = useState(false);
+  const [homeId, setHomeId] = useState(null);
+  const [missionDone, setMissionDone] = useState({});
+  const [panel, setPanel] = useState(null); // jobs | properties | wallet | missions | null
+  const [prompt, setPrompt] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [driving, setDriving] = useState(false);
+
   const engineRef = useRef(null);
-  const sceneRef = useRef(null);
   const playerRef = useRef(null);
-  const carsRef = useRef([]);
+  const partsRef = useRef(null);
+  const trafficRef = useRef([]);
   const collidersRef = useRef([]);
+  const vehicleRef = useRef(null);
+  const markersRef = useRef([]);
+  const npcsRef = useRef([]);
+  const cameraRef = useRef(null);
   const keysRef = useRef(new Set());
   const mobileKeysRef = useRef(new Set());
   const runningRef = useRef(false);
   const pausedRef = useRef(false);
+  const drivingRef = useRef(false);
+  const velocityRef = useRef({ x: 0, z: 0 });
+  const walkPhaseRef = useRef(0);
+  const statsRef = useRef({ x: -3, z: 8, jobsDone: 0, hasDriven: false, homeId: null });
 
-  // Keep pausedRef in sync
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { drivingRef.current = driving; }, [driving]);
   useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
+    statsRef.current = { x: coords.x, z: coords.z, jobsDone, hasDriven, homeId };
+  }, [coords, jobsDone, hasDriven, homeId]);
 
-  // Intro → login auto-advance
   useEffect(() => {
     if (phase !== "intro") return;
     const t = setTimeout(() => setPhase("login"), 2200);
     return () => clearTimeout(t);
   }, [phase]);
 
-  function enterWorld() {
-    setPhase("entering");
-    setTimeout(() => setPhase("world"), 1400);
-  }
+  // Mission checker
+  useEffect(() => {
+    if (phase !== "world") return;
+    const s = statsRef.current;
+    MISSIONS.forEach((m) => {
+      if (!missionDone[m.id] && m.check(s)) {
+        setMissionDone((prev) => ({ ...prev, [m.id]: true }));
+        setCash((c) => c + m.reward);
+        setToast(`Mission complete: ${m.title} (+₦${m.reward.toLocaleString()})`);
+        setTimeout(() => setToast(null), 2500);
+      }
+    });
+  }, [coords, jobsDone, hasDriven, homeId, phase, missionDone]);
 
-  // Location label helper
+  const appearance = {
+    skin: SKIN_TONES.find((s) => s.id === skinId)?.hex || "#9b6545",
+    shirt: SHIRT_COLORS.find((s) => s.id === shirtId)?.hex || "#d2a95c",
+    trousers: TROUSER_COLORS.find((s) => s.id === trouserId)?.hex || "#283c4b"
+  };
+
   const updateLocation = useCallback((x, z) => {
-    if (Math.abs(x) < 8) {
-      setLocationName("LEKKI AVENUE");
-    } else if (x < -8) {
-      setLocationName("WEST SIDE STREETS");
-    } else {
-      setLocationName("EAST SIDE STREETS");
-    }
+    if (Math.abs(x) < 10) {
+      if (z > 60) setLocationName("NORTH AVENUE");
+      else if (z < -60) setLocationName("SOUTH AVENUE");
+      else setLocationName("LEKKI AVENUE");
+    } else if (x < -10) setLocationName(z > 40 ? "NORTH-WEST" : z < -40 ? "SOUTH-WEST" : "WEST STREETS");
+    else setLocationName(z > 40 ? "NORTH-EAST" : z < -40 ? "SOUTH-EAST" : "EAST STREETS");
   }, []);
 
-  // Babylon scene setup (only when phase becomes "world")
   useEffect(() => {
-    if (phase !== "world" || !canvasRef.current) return;
-    if (engineRef.current) return; // already initialised
+    if (phase !== "world" || !canvasRef.current || engineRef.current) return;
 
-    const engine = new Engine(canvasRef.current, true, {
-      preserveDrawingBuffer: false,
-      stencil: true,
-      antialias: true
-    });
+    const engine = new Engine(canvasRef.current, true, { antialias: true, stencil: true });
     const scene = new Scene(engine);
-    const { player, camera, cars, colliders } = buildWorld(scene);
+    const world = buildWorld(scene, appearance);
 
     engineRef.current = engine;
-    sceneRef.current = scene;
-    playerRef.current = player;
-    carsRef.current = cars;
-    collidersRef.current = colliders;
+    playerRef.current = world.player;
+    partsRef.current = world.parts;
+    trafficRef.current = world.traffic;
+    collidersRef.current = world.colliders;
+    vehicleRef.current = world.vehicle;
+    markersRef.current = world.markers;
+    npcsRef.current = world.npcs;
+    cameraRef.current = world.camera;
 
     const keys = keysRef.current;
     const mobileKeys = mobileKeysRef.current;
@@ -407,10 +353,9 @@ export default function Home() {
       const k = e.key.toLowerCase();
       keys.add(k);
       if (k === "shift") runningRef.current = true;
-      // Escape toggles pause
-      if (k === "escape") {
-        setPaused((p) => !p);
-      }
+      if (k === "escape") setPaused((p) => !p);
+      if (k === "e") tryInteract();
+      if (k === "f") tryVehicle();
     };
     const up = (e) => {
       const k = e.key.toLowerCase();
@@ -420,8 +365,60 @@ export default function Home() {
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
 
+    function tryVehicle() {
+      const v = vehicleRef.current;
+      const p = playerRef.current;
+      if (!v || !p) return;
+      if (drivingRef.current) {
+        // Exit vehicle
+        drivingRef.current = false;
+        setDriving(false);
+        v.occupied = false;
+        p.visibility = 0;
+        p.position.x = v.body.position.x + 2.5;
+        p.position.z = v.body.position.z;
+        p.position.y = 1.2;
+        cameraRef.current.lockedTarget = p;
+        cameraRef.current.radius = 10;
+        setPrompt(null);
+        return;
+      }
+      const dist = Math.hypot(p.position.x - v.body.position.x, p.position.z - v.body.position.z);
+      if (dist < 4.5) {
+        drivingRef.current = true;
+        setDriving(true);
+        setHasDriven(true);
+        v.occupied = true;
+        p.visibility = 0;
+        // hide visual parts while driving
+        const parts = partsRef.current;
+        if (parts) Object.values(parts).forEach((m) => { m.isVisible = false; });
+        cameraRef.current.lockedTarget = v.body;
+        cameraRef.current.radius = 12;
+        cameraRef.current.heightOffset = 4;
+        setPrompt(null);
+        setToast("Driving — WASD to steer, F to exit");
+        setTimeout(() => setToast(null), 2500);
+      }
+    }
+
+    function tryInteract() {
+      if (drivingRef.current) return;
+      const p = playerRef.current;
+      if (!p) return;
+      for (const mk of markersRef.current) {
+        const dist = Math.hypot(p.position.x - mk.x, p.position.z - mk.z);
+        if (dist < 4) {
+          if (mk.type === "job") setPanel("jobs");
+          if (mk.type === "property") setPanel("properties");
+          return;
+        }
+      }
+    }
+
     let last = performance.now();
-    const playerRadius = 0.55;
+    const BOUND = 145;
+    const pr = 0.55;
 
     const tick = () => {
       const now = performance.now();
@@ -429,72 +426,112 @@ export default function Home() {
       last = now;
 
       if (!pausedRef.current) {
-        let dx = 0;
-        let dz = 0;
         const allKeys = new Set([...keys, ...mobileKeys]);
+        let dx = 0, dz = 0;
         if (allKeys.has("w") || allKeys.has("arrowup")) dz += 1;
         if (allKeys.has("s") || allKeys.has("arrowdown")) dz -= 1;
         if (allKeys.has("a") || allKeys.has("arrowleft")) dx -= 1;
         if (allKeys.has("d") || allKeys.has("arrowright")) dx += 1;
 
-        const isRunning = runningRef.current || allKeys.has("run");
-        const speed = isRunning ? 12 : 6.5;
+        if (drivingRef.current) {
+          // Vehicle driving
+          const v = vehicleRef.current;
+          if (v) {
+            const speed = allKeys.has("run") || runningRef.current ? 28 : 16;
+            if (dx || dz) {
+              const len = Math.hypot(dx, dz) || 1;
+              dx /= len; dz /= len;
+              v.body.position.x += dx * speed * dt;
+              v.body.position.z += dz * speed * dt;
+              v.body.position.x = Math.max(-BOUND, Math.min(BOUND, v.body.position.x));
+              v.body.position.z = Math.max(-BOUND, Math.min(BOUND, v.body.position.z));
+              v.body.rotation.y = Math.atan2(dx, dz);
+              setCoords({ x: Math.round(v.body.position.x), z: Math.round(v.body.position.z) });
+              updateLocation(v.body.position.x, v.body.position.z);
+            }
+          }
+        } else {
+          // On foot
+          const isRunning = runningRef.current || allKeys.has("run");
+          const targetSpeed = isRunning ? 14 : 7.2;
+          const vel = velocityRef.current;
+          if (dx || dz) {
+            const len = Math.hypot(dx, dz) || 1;
+            dx /= len; dz /= len;
+            vel.x += (dx * targetSpeed - vel.x) * Math.min(1, 12 * dt);
+            vel.z += (dz * targetSpeed - vel.z) * Math.min(1, 12 * dt);
+          } else {
+            vel.x *= Math.max(0, 1 - 10 * dt);
+            vel.z *= Math.max(0, 1 - 10 * dt);
+            if (Math.hypot(vel.x, vel.z) < 0.15) { vel.x = 0; vel.z = 0; }
+          }
 
-        if (dx || dz) {
-          const length = Math.hypot(dx, dz) || 1;
-          dx /= length;
-          dz /= length;
+          const speed = Math.hypot(vel.x, vel.z);
+          const parts = partsRef.current;
+          if (parts && speed > 0.4) {
+            walkPhaseRef.current += dt * (isRunning ? 14 : 9);
+            const swing = Math.sin(walkPhaseRef.current) * (isRunning ? 0.55 : 0.35);
+            parts.legL.rotation.x = swing; parts.legR.rotation.x = -swing;
+            parts.armL.rotation.x = -swing * 0.8; parts.armR.rotation.x = swing * 0.8;
+          } else if (parts) {
+            parts.legL.rotation.x *= 0.85; parts.legR.rotation.x *= 0.85;
+            parts.armL.rotation.x *= 0.85; parts.armR.rotation.x *= 0.85;
+          }
 
+          if (vel.x || vel.z) {
+            const p = playerRef.current;
+            let fx = p.position.x + vel.x * dt;
+            let fz = p.position.z + vel.z * dt;
+            const cols = collidersRef.current;
+            let hitX = false, hitZ = false;
+            for (const c of cols) {
+              if (aabb(fx, p.position.z, pr * 2, pr * 2, c.x, c.z, c.hw * 2, c.hd * 2)) hitX = true;
+              if (aabb(hitX ? p.position.x : fx, fz, pr * 2, pr * 2, c.x, c.z, c.hw * 2, c.hd * 2)) hitZ = true;
+            }
+            if (hitX) { fx = p.position.x; vel.x = 0; }
+            if (hitZ) { fz = p.position.z; vel.z = 0; }
+            fx = Math.max(-BOUND, Math.min(BOUND, fx));
+            fz = Math.max(-BOUND, Math.min(BOUND, fz));
+            p.position.x = fx; p.position.z = fz;
+            if (speed > 0.3) p.rotation.y = Math.atan2(vel.x, vel.z);
+            setCoords({ x: Math.round(fx), z: Math.round(fz) });
+            updateLocation(fx, fz);
+          }
+
+          // Interaction prompts
           const p = playerRef.current;
-          const proposedX = p.position.x + dx * speed * dt;
-          const proposedZ = p.position.z + dz * speed * dt;
-
-          // Collision resolution with wall sliding
-          let finalX = proposedX;
-          let finalZ = proposedZ;
-          const cols = collidersRef.current;
-
-          // Check X movement alone
-          let hitX = false;
-          for (const c of cols) {
-            if (aabbOverlap(proposedX, p.position.z, playerRadius * 2, playerRadius * 2, c.x, c.z, c.hw * 2, c.hd * 2)) {
-              hitX = true;
-              break;
+          const v = vehicleRef.current;
+          let near = null;
+          if (v && Math.hypot(p.position.x - v.body.position.x, p.position.z - v.body.position.z) < 4.5) {
+            near = "Press F · Enter vehicle";
+          } else {
+            for (const mk of markersRef.current) {
+              if (Math.hypot(p.position.x - mk.x, p.position.z - mk.z) < 4) {
+                near = mk.type === "job" ? "Press E · Job available" : "Press E · View property";
+                break;
+              }
             }
           }
-          if (hitX) finalX = p.position.x;
-
-          // Check Z movement alone
-          let hitZ = false;
-          for (const c of cols) {
-            if (aabbOverlap(finalX, proposedZ, playerRadius * 2, playerRadius * 2, c.x, c.z, c.hw * 2, c.hd * 2)) {
-              hitZ = true;
-              break;
-            }
-          }
-          if (hitZ) finalZ = p.position.z;
-
-          // District bounds
-          finalX = Math.max(-78, Math.min(78, finalX));
-          finalZ = Math.max(-72, Math.min(72, finalZ));
-
-          p.position.x = finalX;
-          p.position.z = finalZ;
-          p.rotation.y = Math.atan2(dx, dz);
-
-          setCoords({ x: Math.round(finalX), z: Math.round(finalZ) });
-          updateLocation(finalX, finalZ);
+          setPrompt(near);
         }
 
         // Traffic
-        carsRef.current.forEach((car) => {
+        trafficRef.current.forEach((car) => {
           car.z += car.speed * dt;
-          if (car.z > 72) car.z = -72;
+          if (car.z > 140) car.z = -140;
           car.body.position.z = car.z;
           car.cabin.position.z = car.z - 0.15;
         });
-      }
 
+        // NPCs patrol
+        npcsRef.current.forEach((n) => {
+          n.z += n.speed * n.dir * dt;
+          if (n.z > 120) n.dir = -1;
+          if (n.z < -120) n.dir = 1;
+          n.mesh.position.z = n.z;
+          n.mesh.rotation.y = n.dir > 0 ? 0 : Math.PI;
+        });
+      }
       scene.render();
     };
 
@@ -511,27 +548,34 @@ export default function Home() {
       scene.dispose();
       engine.dispose();
       engineRef.current = null;
-      sceneRef.current = null;
     };
   }, [phase, updateLocation]);
 
-  // Mobile pad helpers — hold-to-move
-  function padDown(key) {
-    mobileKeysRef.current.add(key);
-  }
-  function padUp(key) {
-    mobileKeysRef.current.delete(key);
-  }
-  function padRunDown() {
-    mobileKeysRef.current.add("run");
-    runningRef.current = true;
-  }
-  function padRunUp() {
-    mobileKeysRef.current.delete("run");
-    runningRef.current = false;
+  function doJob(job) {
+    setCash((c) => c + job.pay);
+    setJobsDone((n) => n + 1);
+    setToast(`+₦${job.pay.toLocaleString()} · ${job.name}`);
+    setTimeout(() => setToast(null), 2500);
+    setPanel(null);
   }
 
-  /* ── Phase renders ── */
+  function rentProperty(prop) {
+    if (cash < prop.rent) {
+      setToast("Not enough cash to rent");
+      setTimeout(() => setToast(null), 2000);
+      return;
+    }
+    setCash((c) => c - prop.rent);
+    setHomeId(prop.id);
+    setToast(`Rented: ${prop.name}`);
+    setTimeout(() => setToast(null), 2500);
+    setPanel(null);
+  }
+
+  function padDown(k) { mobileKeysRef.current.add(k); }
+  function padUp(k) { mobileKeysRef.current.delete(k); }
+
+  // ── UI phases ──
   if (phase === "intro") {
     return (
       <main className="intro">
@@ -539,9 +583,7 @@ export default function Home() {
         <div className="logo-mark">NL</div>
         <div className="brand">NAIJALIFE</div>
         <div className="tagline">YOUR LIFE. YOUR CITY. YOUR STORY.</div>
-        <div className="loading">
-          <span /> LOADING YOUR WORLD
-        </div>
+        <div className="loading"><span /> LOADING YOUR WORLD</div>
       </main>
     );
   }
@@ -554,14 +596,54 @@ export default function Home() {
           <div className="mini-logo">NL</div>
           <p className="eyebrow">WELCOME TO</p>
           <h1>NAIJALIFE</h1>
-          <p className="copy">
-            Create your character, build your life, earn your money and shape your own Nigerian story.
-          </p>
-          <button onClick={enterWorld}>
-            ENTER NAIJALIFE <span>→</span>
-          </button>
-          <small>Stage 1C · Lekki District Prototype</small>
+          <p className="copy">Create your character, work jobs, rent a place, drive, and build your Nigerian story.</p>
+          <button onClick={() => setPhase("creator")}>CREATE CHARACTER <span>→</span></button>
+          <small>Full vertical slice · v1.0.0-alpha</small>
         </section>
+      </main>
+    );
+  }
+
+  if (phase === "creator") {
+    return (
+      <main className="creator">
+        <div className="creator-card">
+          <h1>YOUR CHARACTER</h1>
+          <p className="sub">LOOK LIKE YOURSELF IN LEKKI</p>
+          <div className="creator-preview" style={{ background: `linear-gradient(180deg, ${appearance.skin} 40%, ${appearance.shirt} 40% 70%, ${appearance.trousers} 70%)` }} />
+          <div className="creator-field">
+            <label>DISPLAY NAME</label>
+            <input type="text" maxLength={16} value={charName} onChange={(e) => setCharName(e.target.value.slice(0, 16))} />
+          </div>
+          <div className="creator-field">
+            <label>SKIN TONE</label>
+            <div className="swatch-row">
+              {SKIN_TONES.map((s) => (
+                <button key={s.id} type="button" className={`swatch${skinId === s.id ? " selected" : ""}`} style={{ background: s.hex }} onClick={() => setSkinId(s.id)} />
+              ))}
+            </div>
+          </div>
+          <div className="creator-field">
+            <label>SHIRT</label>
+            <div className="swatch-row">
+              {SHIRT_COLORS.map((s) => (
+                <button key={s.id} type="button" className={`swatch${shirtId === s.id ? " selected" : ""}`} style={{ background: s.hex }} onClick={() => setShirtId(s.id)} />
+              ))}
+            </div>
+          </div>
+          <div className="creator-field">
+            <label>TROUSERS</label>
+            <div className="swatch-row">
+              {TROUSER_COLORS.map((s) => (
+                <button key={s.id} type="button" className={`swatch${trouserId === s.id ? " selected" : ""}`} style={{ background: s.hex }} onClick={() => setTrouserId(s.id)} />
+              ))}
+            </div>
+          </div>
+          <div className="creator-actions">
+            <button type="button" className="secondary" onClick={() => setPhase("login")}>BACK</button>
+            <button type="button" className="primary" onClick={() => { setPhase("entering"); setTimeout(() => setPhase("world"), 1400); }}>ENTER CITY</button>
+          </div>
+        </div>
       </main>
     );
   }
@@ -571,122 +653,161 @@ export default function Home() {
       <main className="transition">
         <div className="transition-ring" />
         <h1>ENTERING YOUR WORLD</h1>
-        <p>Preparing Lekki District...</p>
+        <p>Welcome, {charName || "Player"}...</p>
       </main>
     );
   }
 
-  // World phase
+  const missionsComplete = MISSIONS.filter((m) => missionDone[m.id]).length;
+
   return (
     <main className="world-screen">
       <div className="hud-top">
-        <a className="wordmark" href="#" onClick={(e) => e.preventDefault()}>
-          NAIJALIFE
-        </a>
+        <a className="wordmark" href="#" onClick={(e) => e.preventDefault()}>NAIJALIFE</a>
         <div className="hud-place">
-          <span className="live-dot" /> LEKKI DISTRICT <small>ALPHA WORLD · STAGE 1C</small>
+          <span className="live-dot" /> <span className="hud-name">{charName || "Player"}</span>
+          <small>{driving ? "DRIVING" : "ON FOOT"} · {locationName}</small>
         </div>
         <div className="hud-money">
-          ₦25,000 <small>VIRTUAL CASH</small>
+          ₦{cash.toLocaleString()} <small>VIRTUAL CASH</small>
         </div>
       </div>
 
       <div className="game-stage">
-        <canvas ref={canvasRef} className="world-canvas" aria-label="Playable 3D NaijaLife district" />
+        <canvas ref={canvasRef} className="world-canvas" aria-label="NaijaLife district" />
         {!ready && <div className="loading-world">BUILDING YOUR CITY...</div>}
 
         <div className="location-chip">
           <span>⌖</span> {locationName}
-          <small>
-            X {coords.x} · Z {coords.z}
-          </small>
+          <small>X {coords.x} · Z {coords.z}{homeId ? " · HOME SET" : ""}</small>
         </div>
 
         <div className="mission-chip">
-          <small>FIRST DAY OBJECTIVE</small>
-          <strong>Explore Lekki District</strong>
-          <span>Walk the avenue, check side streets, and get a feel for your new city.</span>
+          <small>MISSIONS {missionsComplete}/{MISSIONS.length}</small>
+          <strong>{MISSIONS.find((m) => !missionDone[m.id])?.title || "All missions done"}</strong>
+          <span>{MISSIONS.find((m) => !missionDone[m.id])?.desc || "Explore, work, drive, rent."}</span>
         </div>
 
         <div className="controls-help">
-          <strong>MOVE</strong>
-          <span>W A S D / arrows</span>
-          <span>Shift = Run</span>
-          <span>Esc = Pause</span>
-          <button onClick={() => setHelp(!help)}>{help ? "HIDE PAD" : "SHOW PAD"}</button>
+          <strong>{driving ? "DRIVE" : "MOVE"}</strong>
+          <span>WASD · Shift run</span>
+          <span>F vehicle · E interact</span>
+          <div className="hud-actions">
+            <button onClick={() => setPanel("jobs")}>JOBS</button>
+            <button onClick={() => setPanel("properties")}>HOME</button>
+            <button onClick={() => setPanel("missions")}>TASKS</button>
+            <button onClick={() => setPanel("wallet")}>WALLET</button>
+          </div>
+          <button onClick={() => setHelp(!help)}>{help ? "HIDE PAD" : "PAD"}</button>
           <button onClick={() => setPaused(!paused)}>{paused ? "RESUME" : "PAUSE"}</button>
         </div>
 
-        {help && (
+        {help && !driving && (
           <div className="mobile-pad">
-            <button
-              aria-label="Move forward"
-              onPointerDown={() => padDown("w")}
-              onPointerUp={() => padUp("w")}
-              onPointerLeave={() => padUp("w")}
-              onPointerCancel={() => padUp("w")}
-            >
-              ▲
-            </button>
+            <button onPointerDown={() => padDown("w")} onPointerUp={() => padUp("w")} onPointerLeave={() => padUp("w")}>▲</button>
             <div className="pad-row">
-              <button
-                aria-label="Move left"
-                onPointerDown={() => padDown("a")}
-                onPointerUp={() => padUp("a")}
-                onPointerLeave={() => padUp("a")}
-                onPointerCancel={() => padUp("a")}
-              >
-                ◀
-              </button>
-              <button
-                aria-label="Move backward"
-                onPointerDown={() => padDown("s")}
-                onPointerUp={() => padUp("s")}
-                onPointerLeave={() => padUp("s")}
-                onPointerCancel={() => padUp("s")}
-              >
-                ▼
-              </button>
-              <button
-                aria-label="Move right"
-                onPointerDown={() => padDown("d")}
-                onPointerUp={() => padUp("d")}
-                onPointerLeave={() => padUp("d")}
-                onPointerCancel={() => padUp("d")}
-              >
-                ▶
-              </button>
+              <button onPointerDown={() => padDown("a")} onPointerUp={() => padUp("a")} onPointerLeave={() => padUp("a")}>◀</button>
+              <button onPointerDown={() => padDown("s")} onPointerUp={() => padUp("s")} onPointerLeave={() => padUp("s")}>▼</button>
+              <button onPointerDown={() => padDown("d")} onPointerUp={() => padUp("d")} onPointerLeave={() => padUp("d")}>▶</button>
             </div>
-            <button
-              className="run-btn"
-              aria-label="Run"
-              onPointerDown={padRunDown}
-              onPointerUp={padRunUp}
-              onPointerLeave={padRunUp}
-              onPointerCancel={padRunUp}
-            >
-              RUN
-            </button>
+            <button className="run-btn" onPointerDown={() => { padDown("run"); runningRef.current = true; }} onPointerUp={() => { padUp("run"); runningRef.current = false; }} onPointerLeave={() => { padUp("run"); runningRef.current = false; }}>RUN</button>
           </div>
         )}
+
+        {prompt && <div className="interact-prompt">{prompt}</div>}
+        {toast && <div className="toast">{toast}</div>}
 
         {paused && (
           <div className="pause-overlay">
             <div className="pause-card">
               <h2>PAUSED</h2>
-              <p>LEKKI DISTRICT · STAGE 1C</p>
+              <p>{charName} · ₦{cash.toLocaleString()}</p>
               <button onClick={() => setPaused(false)}>RESUME</button>
+            </div>
+          </div>
+        )}
+
+        {panel === "jobs" && (
+          <div className="panel-overlay" onClick={() => setPanel(null)}>
+            <div className="panel" onClick={(e) => e.stopPropagation()}>
+              <h2>JOBS</h2>
+              <p className="panel-sub">GOLD MARKERS ON THE MAP · WORK TO EARN</p>
+              <div className="panel-list">
+                {JOBS.map((j) => (
+                  <div className="panel-item" key={j.id}>
+                    <div><strong>{j.name}</strong><span>{j.desc}</span></div>
+                    <button onClick={() => doJob(j)}>₦{j.pay.toLocaleString()}</button>
+                  </div>
+                ))}
+              </div>
+              <button className="panel-close" onClick={() => setPanel(null)}>CLOSE</button>
+            </div>
+          </div>
+        )}
+
+        {panel === "properties" && (
+          <div className="panel-overlay" onClick={() => setPanel(null)}>
+            <div className="panel" onClick={(e) => e.stopPropagation()}>
+              <h2>PROPERTIES</h2>
+              <p className="panel-sub">AMBER MARKERS · RENT A PLACE TO LIVE</p>
+              <div className="panel-list">
+                {PROPERTIES.map((p) => (
+                  <div className="panel-item" key={p.id}>
+                    <div>
+                      <strong>{p.name}{homeId === p.id ? " ✓" : ""}</strong>
+                      <span>{p.desc}</span>
+                    </div>
+                    <button disabled={homeId === p.id || cash < p.rent} onClick={() => rentProperty(p)}>
+                      {homeId === p.id ? "RENTED" : `₦${p.rent.toLocaleString()}`}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="panel-close" onClick={() => setPanel(null)}>CLOSE</button>
+            </div>
+          </div>
+        )}
+
+        {panel === "missions" && (
+          <div className="panel-overlay" onClick={() => setPanel(null)}>
+            <div className="panel" onClick={(e) => e.stopPropagation()}>
+              <h2>MISSIONS</h2>
+              <p className="panel-sub">{missionsComplete} OF {MISSIONS.length} COMPLETE</p>
+              <div className="panel-list">
+                {MISSIONS.map((m) => (
+                  <div className="panel-item" key={m.id}>
+                    <div>
+                      <strong>{missionDone[m.id] ? "✓ " : ""}{m.title}</strong>
+                      <span>{m.desc} · ₦{m.reward.toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="panel-close" onClick={() => setPanel(null)}>CLOSE</button>
+            </div>
+          </div>
+        )}
+
+        {panel === "wallet" && (
+          <div className="panel-overlay" onClick={() => setPanel(null)}>
+            <div className="panel" onClick={(e) => e.stopPropagation()}>
+              <h2>WALLET</h2>
+              <p className="panel-sub">VIRTUAL NAIRA · ALPHA ECONOMY</p>
+              <div className="panel-list">
+                <div className="panel-item"><div><strong>Balance</strong><span>Available cash</span></div><strong>₦{cash.toLocaleString()}</strong></div>
+                <div className="panel-item"><div><strong>Jobs completed</strong><span>Lifetime shifts</span></div><strong>{jobsDone}</strong></div>
+                <div className="panel-item"><div><strong>Home</strong><span>Current rental</span></div><strong>{homeId ? PROPERTIES.find((p) => p.id === homeId)?.name : "None"}</strong></div>
+              </div>
+              <button className="panel-close" onClick={() => setPanel(null)}>CLOSE</button>
             </div>
           </div>
         )}
       </div>
 
       <div className="bottom-bar">
-        <span>
-          <i /> WORLD SIMULATION RUNNING
-        </span>
-        <span>ALPHA 0.3 · STAGE 1C</span>
-        <span>COLLISION · RUN · PAUSE ACTIVE</span>
+        <span><i /> NAIJALIFE ALPHA</span>
+        <span>v1.0.0-alpha · FULL SLICE</span>
+        <span>JOBS · DRIVE · RENT · MISSIONS</span>
       </div>
     </main>
   );
